@@ -1,4 +1,3 @@
-import tkinter
 import time
 import socket
 import sys
@@ -6,8 +5,20 @@ import selectors
 import types
 import random
 import math
-import robot 
+import robot
+import tkinter as tk
+from tkinter import ttk
+from tkinter import * 
 
+# this is the function called when the button is clicked
+def btnClickFunction():
+  print('clicked')
+
+QUANTA = 30
+BOTSIZE = 6   
+ARENA_SIZE = 800
+STATUS_WIDTH = 400
+colors = ["dodger blue", "lightgreen", "red", "yellow"]
 
 def serviceConnection(key, mask):
   sock = key.fileobj
@@ -25,7 +36,8 @@ def serviceConnection(key, mask):
         #print("Scan commd: ", cms)
         botParm1 = cmds[2]
         botParm2 = cmds[3]
-        robots[botIndex].myScan(int(botParm1),int(botParm2))
+        robots[botIndex].scan(int(botParm1),int(botParm2))
+        #print("Done")
       if botCmd == "place":
         botIndex = placeBot(sock)
         recv_data = ""
@@ -46,6 +58,10 @@ def serviceConnection(key, mask):
         data.outb = ""
         recv_data = ""
         return
+      if botCmd == "setName":
+        robots[botIndex].name = cmds[2]
+        print("Calling setname", cmds[2])
+        robots[botIndex].panel.setName(cmds[2])
       if botCmd == "setDirection":
         botParm1 = cmds[2]
         robots[botIndex].setSpeedGoal(int(botParm1))
@@ -69,7 +85,7 @@ def accept_wrapper(sock):
   sel.register(conn, events, data=data)
 
 # Subclass of tkinter.Canvas with positive Y axis and arena scaling
-class myCanvas(tkinter.Canvas):
+class myCanvas(tk.Canvas):
 
   def __init__(self, window, height, width):
     super().__init__(window, height=f'{height}', width=f'{width}')
@@ -77,11 +93,17 @@ class myCanvas(tkinter.Canvas):
     self.width = width
     self.xscale = width/1000
     self.yscale = height/1000
+    self.startTime = time.time()
+    self.gameTime = 0
+    self.status = "I"         # Initialized, Paused, Running, Finished
+
+  def time():
+    return time.time() - self.startTime
 
   def makeBot(self, x, y, color):
     x = x * self.xscale
     y = self.height - y * self.yscale
-    return super(myCanvas, self).create_polygon(x-3,y-3, x-3,y+3, x+3,y+3, x+3,y-3, fill=color, outline="Black", width=1)
+    return super(myCanvas, self).create_polygon(x-BOTSIZE,y-BOTSIZE, x-BOTSIZE,y+BOTSIZE, x+BOTSIZE,y+BOTSIZE, x+BOTSIZE,y-BOTSIZE, fill=color, outline="Black", width=1)
 
   # Move thing by x and y increments
   def move(self,thing,x,y):
@@ -89,9 +111,29 @@ class myCanvas(tkinter.Canvas):
     y = y * self.yscale    
     super(myCanvas, self).move(thing,x,y*-1)
 
+  def line(self, x1, y1, x2, y2, fill="black"):
+    x1 = x1 * self.xscale
+    y1 = (1000 - y1) * self.yscale    
+    x2 = x2 * self.xscale
+    y2 = (1000 - y2) * self.yscale
+    return super(myCanvas, self).create_line(x1, y1, x2, y2, fill=f"{fill}")    
+
+  def circle(self, x, y, r, fill=""): #center coordinates, radius
+    x0 = (x - r) * self.xscale
+    y0 = (1000 - y - r) * self.yscale
+    x1 = (x + r) * self.xscale
+    y1 = (1000 - y + r) * self.yscale
+    return super(myCanvas, self).create_oval(x0, y0, x1, y1, fill=f"{fill}")
+
+  def center(self, cir):
+    coords = super(myCanvas, self).coords(cir)
+    x = (coords[0] + coords[2]) / 2 / self.xscale
+    y = 1000 - ((coords[1] + coords[3]) / 2 / self.yscale)
+    return [x, y]
+
 # Window that frames the arena canvas
 def createFrame(width, height):
-  Window = tkinter.Tk()
+  Window = tk.Tk()
   Window.title("Arena")
   Window.geometry(f'{width}x{height}')
   return Window
@@ -113,7 +155,6 @@ def placeBot(sock):
     print("Quadrant allocation error. Start over.")
     return 0
 
-
   # Pick a random quadrant
   q = random.randint(0,3)
   while quads[q].used == 1:
@@ -125,9 +166,11 @@ def placeBot(sock):
   x = random.randint(0,300) + quads[q].x
   y = random.randint(0,300) + quads[q].y
 
-  robots.append(robot.serverRobot(r+1, arena))
-
+  robots.append(robot.serverRobot(r+1, arena, robots))
   robots[r].place(sock, x, y)
+  robots[r].panel = panels[r]
+  robots[r].panel.populate(robots[r].name)
+
   print(f"Bots: {robots[r].index}")
 
   print (f"placed {r}")
@@ -149,9 +192,116 @@ quads[2].y = 100
 quads[3].x = 600
 quads[3].y = 600
 
+def makePanel(frame, row):
+  recspec = [(2,2), (STATUS_WIDTH - 2, ARENA_SIZE / 5 -2)]
+  myPanel = tk.Canvas(frame, width=STATUS_WIDTH, height=ARENA_SIZE / 5 -2, bg="white", bd=1)
+  myPanel.grid(column=1, row=row)
+  myPanel.create_rectangle(recspec)
+  #Label(myPanel, text=title, bg='#F0F8FF', font=('arial', 12, 'normal')).place(x=131, y=3)
+  return myPanel
+
+class robotPanel:
+  def __init__(self, frame, index):
+    self.botPanel = makePanel(frame, index)
+    self.index=index
+    print("Panel index", index)
+
+  def populate(self, name):
+    # Label at top
+
+    # Speed display
+    Label(self.botPanel, text='Speed', bg='white', font=('arial', 10, 'normal')).place(x=5, y=10)    
+    self.Speed=Entry(self.botPanel)
+    self.Speed.config(width=4, justify=RIGHT, font='arial 10')
+    self.Speed.place(x=75, y=10)
+
+    # Direction display
+    Label(self.botPanel, text='Direction', bg='white', font=('arial', 10, 'normal')).place(x=5, y=40)    
+    self.Dir=Entry(self.botPanel)
+    self.Dir.config(width=4, justify=RIGHT, font='arial 10')
+    self.Dir.place(x=75, y=40)
+
+    # Motor Heat display
+    Label(self.botPanel, text='Mtr Heat', bg='white', font=('arial', 10, 'normal')).place(x=5, y=70)    
+    self.Mheat=Entry(self.botPanel)
+    self.Mheat.config(width=4, justify=RIGHT, font='arial 10')
+    self.Mheat.place(x=75, y=70)
+
+    # Barrel Heat display
+    Label(self.botPanel, text='Barrel', bg='white', font=('arial', 10, 'normal')).place(x=5, y=100)    
+    self.bHeat=Entry(self.botPanel)
+    self.bHeat.config(width=4, justify=RIGHT, font='arial 10')
+    self.bHeat.place(x=75, y=100)
+
+    # Health status bar
+    Label(self.botPanel, text='Health', bg='white', font=('arial', 10, 'normal')).place(x=5, y=130)
+    progessBarOne_style = ttk.Style()
+    progessBarOne_style.theme_use('clam')
+    progessBarOne_style.configure('progessBarOne.Horizontal.TProgressbar', 
+      foreground='#FF4040', background='#FF4040')
+
+    self.progessBarOne=ttk.Progressbar(self.botPanel, style='progessBarOne.Horizontal.TProgressbar', 
+      orient='horizontal', length=300, mode='determinate', maximum=100, value=100)
+    self.progessBarOne.place(x=75, y=130)
+
+  def setName(self, name):
+    print ("Setting name", name)
+    self.nameLabel = Label(self.botPanel, text=name, bg=colors[self.index-1], font=('arial', 12, 'normal')).place(x=151, y=3)
+    #self.nameLabel.config(text = name)
+
+  def setHealth(self, val):
+    self.progessBarOne['value']=val
+
+  def setMheat(self, val):
+    self.Mheat.delete(0,END)
+    sval = "%.0f" % val
+    self.Mheat.insert(0,sval)
+   
+  def setSpeed(self, val):
+    self.Speed.delete(0,END)
+    sval = "%.0f" % val
+    self.Speed.insert(0,sval)
+
+  def setDir(self, val):
+    self.Dir.delete(0,END)
+    sval = "%.0f" % val
+    self.Dir.insert(0,sval)
+
+  def setBheat(self, val):
+    self.bHeat.delete(0,END)
+    sval = "%.0f" % val
+    self.bHeat.insert(0,sval)
+
+def startBtnClick():
+  if arena.gameTime == 0:
+    arena.startTime = time.time()
+  arena.status = "R"
+
+def pauseBtnClick():
+  arena.status = "P"
+
 # Create frame and arena - same size
-frame = createFrame(500,500)
-arena = createArena(frame, 500, 500)
+frame = createFrame(ARENA_SIZE + STATUS_WIDTH + 2, ARENA_SIZE + 2)
+arena = createArena(frame, ARENA_SIZE, ARENA_SIZE)
+arena.grid(column=0, row=0, rowspan=5)
+
+# Status panel Start button
+pnlStatus = makePanel(frame, 0)
+Button(pnlStatus, text='Start', bg='white', font=('arial', 12, 'normal'), command=startBtnClick).place(x=10, y=20)
+
+# Status panel pause button
+Button(pnlStatus, text='Pause', bg='white', font=('arial', 12, 'normal'), command=pauseBtnClick).place(x=90, y=20)
+
+# Status panel game time display
+Label(pnlStatus, text='Game Time', bg='white', font=('arial', 10, 'normal')).place(x=250, y=20)    
+gTime=Entry(pnlStatus)
+gTime.config(width=4, justify=RIGHT, font='arial 10')
+gTime.place(x=350, y=20)
+
+panels = []
+for i in range(0,4):
+  panels.append(robotPanel(frame, i+1))
+
 sel = selectors.DefaultSelector()
 robots = []
 
@@ -170,31 +320,51 @@ def main():
   print(f"Listening on {(HOST, PORT)}")
   lsock.setblocking(False)
   sel.register(lsock, selectors.EVENT_READ, data=None)
+  
+  #try:
+  while True:
+    # don't block
+    events = sel.select(timeout=-10)
+    for key, mask in events:
+      # listening socket
+      if key.data is None:
+        accept_wrapper(key.fileobj)
+      else:
+        serviceConnection(key, mask)
 
-  try:
-    while True:
-      # don't block
-      events = sel.select(timeout=-10)
-      for key, mask in events:
-        # listening socket
-        if key.data is None:
-          accept_wrapper(key.fileobj)
-        else:
-          serviceConnection(key, mask)
-      print("a")
-      #for r in bots():
-      #  r.update()
-      #for s in shells():
-      #  s.update()
-      #arena.move(bot,0,1)
-      frame.update()
-      time.sleep(.033)
-      print("b")
-  except KeyboardInterrupt:
-    print("Caught keyboard interrupt, exiting")
-  finally:
-    sel.close()
-    sys.exit()
+    # Check if tournament is over
+    players = 0
+    winner = "none"
+    for r in robots:
+      if r.status == "A":
+        players += 1
+        winner = r.name
+
+    # If game is running and 1 or fewer live robots, we're finished.
+    if players <= 1 and arena.status == "R":
+      arena.status = "F"
+      print ("The winner is", winner)
+    else:
+      for r in robots:
+        r.update()
+
+    if arena.status == "R":
+      arena.gameTime = time.time() - arena.startTime
+    # If we're paused increment start time
+    if arena.status == "P":
+      arena.startTime = time.time() - arena.gameTime
+
+    gTime.delete(0,END)
+    sval = "%.0f" % arena.gameTime
+    gTime.insert(0,sval)
+    frame.update()
+    time.sleep(.033)
+
+  #except KeyboardInterrupt:
+  #  print("Caught keyboard interrupt, exiting")
+  #finally:
+  #  sel.close()
+  #  sys.exit()
 
 main()
 
