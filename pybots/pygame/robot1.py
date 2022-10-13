@@ -8,10 +8,8 @@ import math
 import random
 
 HOST = 'localhost'    # The remote host
-PORT = 50007              # The same port as used by the server
-QUANTA = 10            # frames per second
-pygame.init()
-clock = pygame.time.Clock()
+PORT = 50007          # The same port as used by the server
+QUANTA = 10           # frames per second
 
 sel = selectors.DefaultSelector()
 messages = [b""]
@@ -80,20 +78,26 @@ class bot():
   def processMove(self):
     self.checkSleep()
     # See if we need to turn
-
+    print("1")
+    print(int(self.x), int(self.y), int(self.dirgoal))
     change = False
     if (self.x > 900 and (self.dirgoal > 270 or self.dirgoal < 90)):
       self.dirgoal = random.randint(90, 270)
+      print("east x", self.x, "y", self.y, self.dirgoal)
       change = True
     if (self.x < 100 and (self.dirgoal < 270 and self.dirgoal > 90)):
       self.dirgoal = (self.dirgoal + 180) % 360
+      print("west x", self.x, "y", self.y, self.dirgoal)
       change = True
     if (self.y > 900 and (self.dirgoal > 0 and self.dirgoal < 180)):
       self.dirgoal = random.randint(90, 180)
+      print("north x", self.x, "y", self.y, self.dirgoal)
       change = True
     if (self.y < 100 and (self.dirgoal > 180 and self.dirgoal < 360)):
       self.dirgoal = random.randint(0, 90)
+      print("south x", self.x, "y", self.y, self.dirgoal)
       change = True
+    print("2")
 
     # If we're turning, set new scandir and slow down
     if change == True:
@@ -106,11 +110,12 @@ class bot():
       if (self.speed < 100):
         #print("Accel")
         self.drive(self.dirgoal, 100)
+    print("3")
 
     # Scan and increment scan direction
     result = self.scan(self.scandir, 10)
     if result != 0:
-      print("Scan Response: ", result)
+      #print("Scan Response: ", result)
       if result > 0:
         self.fire(self.scandir, result)
     self.scandir = (self.scandir + 10) % 360
@@ -168,7 +173,6 @@ class bot():
   def ping(self, enemy):
     print (f"Pinged by {enemy}")
 
-
 def start_connections(HOST, PORT, num_conns):
   global myBot
   server_addr = (HOST, PORT)
@@ -213,22 +217,19 @@ myBot = bot()
 
 def main():
   start_connections(HOST, int(PORT), 1)
-  global myBot
-  #myBot.register()
 
-  try:
-    while True:
-      # don't block
-      events = sel.select(timeout=-10)
-      for key, mask in events:
-        service_connection(key, mask)
-      #clock.tick(QUANTA)
-      if(myBot.rindex != -1):
-        myBot.processMove()
-  except KeyboardInterrupt:
-    print("Caught keyboard interrupt, exiting")
-  finally:
-    sel.close()
-    sys.exit()
+  #try:
+  while True:
+    # don't block
+    events = sel.select(timeout=-10)
+    for key, mask in events:
+      service_connection(key, mask)
+    if(myBot.rindex != -1):
+      myBot.processMove()
+  #except KeyboardInterrupt:
+  #  print("Caught keyboard interrupt, exiting")
+  #finally:
+  #  sel.close()
+  #  sys.exit()
 
 main()
