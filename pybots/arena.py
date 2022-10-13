@@ -38,6 +38,7 @@ def serviceConnection(key, mask):
         botParm2 = cmds[3]
         robots[botIndex].scan(int(botParm1),int(botParm2))
         #print("Done")
+        
       if botCmd == "place":
         botIndex = placeBot(sock)
         recv_data = ""
@@ -75,7 +76,6 @@ def serviceConnection(key, mask):
       sel.unregister(sock)
       sock.close()
     data.outb = ""
-
 def accept_wrapper(sock):
   conn, addr = sock.accept()  # Should be ready to read
   print(f"Accepted connection from {addr}")
