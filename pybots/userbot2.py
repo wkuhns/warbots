@@ -23,13 +23,14 @@ class bot():
   direction = -1
   dsp = -1
 
-  __scanResponse = 0
-  __sock = ""
-  __sleepUntil = time.time()
-  __name = "unnamed"
+  scanResponse = 0
+  sock = ""
+  sleepUntil = time.time()
+  name = "unnamed"
   data = []
 
   def __init__(self):
+    print("init")
     self.direction = -1
     self.sleepUntil = time.time()
     # start_connections returns the socket that we'll need.
@@ -174,8 +175,6 @@ class bot():
         sock.close()
       recv_data = ""
 
-
-
   def main(self):
     
     #try:
@@ -196,3 +195,5 @@ class bot():
     #finally:
     #  sel.close()
     #  sys.exit()
+
+myBot = bot()

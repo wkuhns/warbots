@@ -14,13 +14,13 @@ myBot.myScanDirection = 0
 myBot.myRunTimer = 0
 
 def mySetup():
-  global myHeading
+  global myHeading, mySpeed
 
   myBot.setName("Sample")
   myBot.drive(myHeading, 35)
 
 def myPing(enemy):
-
+global myHeading, mySpeed
   print ("Ouch! pinged by", enemy)
   mySpeed = 100
   myBot.drive(myHeading, mySpeed)
