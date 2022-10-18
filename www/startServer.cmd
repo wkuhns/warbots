@@ -1,1 +1,0 @@
-python localCGIServer.py
