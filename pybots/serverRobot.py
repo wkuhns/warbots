@@ -7,16 +7,16 @@ QUANTA = 30
 colors = ["dodger blue", "lightgreen", "red", "yellow"]
 
 # Code for robot instance on server
-class serverRobot():
-  lastReport = 0
+class ServerRobot():
+  lastreport = 0
   braking = False
   coasting = False
 
   # for automatic functions
   autopilot = False
   autoscan = False
-  myHeading = 0
-  myScanDirection = 0
+  heading = 0
+  scandirection = 0
   lastScanTime = time.time()
 
   # for transient graphics
@@ -30,6 +30,10 @@ class serverRobot():
   loadingFinishTime = 0
   loading = False
   shells = 4
+
+  armor = 50
+  scan_accuracy = 50
+  maxSpeedMPS = 32
 
   def __init__(self, index, arena, robots):
     self.index = index
@@ -60,44 +64,48 @@ class serverRobot():
     self.sres = 10
     self.lastscanned = 0  # ID of last 'bot who I scanned
     self.health = 100
-    self.maxSpeedMPS = 20
 
     # Shell variables
     self.ticks = 0
 
-  def doAutopilot(self):
+  def set_armor(self, lvl):
+    self.armor = lvl
+    self.maxSpeedMPS = 41.2 - (lvl+50)**3 * 0.00000924
+    print ("Max", self.armor, self.maxSpeedMPS)
+
+  def do_autopilot(self):
 
     # Are we close to the east wall and heading more or less east?
-    if (self.x > 900 and (self.myHeading > 270 or self.myHeading < 90)):
+    if (self.x > 900 and (self.heading > 270 or self.heading < 90)):
       # Change to a random direction between 90 and 270 (west-ish)
-      self.myHeading = random.randint(90, 270)
+      self.heading = random.randint(90, 270)
 
     # Same question, but avoid hitting west wall
-    if (self.x < 100 and (self.myHeading < 270 and self.myHeading > 90)):
-      self.myHeading = (self.myHeading + 180) % 360
+    if (self.x < 100 and (self.heading < 270 and self.heading > 90)):
+      self.heading = (self.heading + 180) % 360
 
     # Avoid south wall
-    if (self.y > 900 and (self.myHeading > 0 and self.myHeading < 180)):
-      self.myHeading = random.randint(180, 360)
+    if (self.y > 900 and (self.heading > 0 and self.heading < 180)):
+      self.heading = random.randint(180, 360)
 
     # Avoid north wall
-    if (self.y < 100 and (self.myHeading > 180 and self.myHeading < 360)):
-      self.myHeading = random.randint(0, 90)
-    self.drive(self.myHeading, 100)
+    if (self.y < 100 and (self.heading > 180 and self.heading < 360)):
+      self.heading = random.randint(0, 90)
+    self.drive(self.heading, 100)
 
-  def doAutoscan(self):
+  def do_autoscan(self):
     if time.time() < self.lastScanTime + .4:
       return
 
     self.lastScanTime = time.time()
 
-    result = self.scan(self.myScanDirection, 10)
+    result = self.scan(self.scandirection, 10)
 
     # If there's someone there, shoot at them
     if (result > 0):
-      self.myFire(self.myScanDirection, result)
+      self.fire(self.scandirection, result)
     # Increment scan direction
-    self.myScanDirection = (self.myScanDirection + 10) % 360
+    self.scandirection = (self.scandirection + 10) % 360
 
   def post(self, msg):
     msg = msg[:43]
@@ -108,7 +116,7 @@ class serverRobot():
   def time():
     return self.arena.time()
 
-  def sendMessage(self,reply):
+  def send_message(self,reply):
     #print("sending: ", reply)
     reply = reply + ':'
     self.sock.send(reply.encode("utf-8"))
@@ -118,13 +126,13 @@ class serverRobot():
     speed = int(self.currentSpeedMPS*100/self.maxSpeedMPS)
     dir = (360 - self.dir) % 360
     reply = "%d;status;%d;%d;%d;%d;%d;%d;%d" % (self.index,self.x,self.y,self.health,self.mHeat,speed,dir,self.pingnotify)
-    self.sendMessage(reply)
+    self.send_message(reply)
 
-  def myFire(self, dir, range):
+  def fire(self, dir, range):
     # Return with no action if robot is dead or game is paused
     if self.status != "A" or self.arena.status != "R":
       reply = "%d;fire;-1" % (self.index)
-      self.sendMessage(reply)
+      self.send_message(reply)
       return
 
     #print("Firing", dir, range)
@@ -142,12 +150,8 @@ class serverRobot():
       goodToFire = False
 
     if goodToFire == True:
-      if (self.scanLine1 != 0):
-        self.arena.delete(self.scanLine1)
-        self.arena.delete(self.scanLine2)
-        self.scanLine1 = 0
-      if (self.bombIcon != 0):
-        self.arena.delete(self.bombIcon)
+      self.clear_scans()
+      self.clear_bomb()
         
       dist = range
       rtheta = dir / 57.3
@@ -177,11 +181,11 @@ class serverRobot():
     else:
       #print ("Misfire", self.index)
       reply = "%d;fire;-1" % (self.index)
-    self.sendMessage(reply)
+    self.send_message(reply)
 
   def place(self,sock, x, y):
     
-    self.botIcon = self.arena.makeBot(x, y, colors[self.index-1])
+    self.botIcon = self.arena.makebot(x, y, colors[self.index-1])
     #self.x = self.rect.centerx
     #self.y = 999 - self.rect.centery
     self.sock = sock
@@ -203,15 +207,14 @@ class serverRobot():
     self.mHeat = 50
     self.bHeat = 0
     self.reload = 0
-    self.fire = 0
     self.cooling = False
     #self.scan = 0
     #blitRotateCenter(arena, self.image, self.x, angle):
-    self.lastReport = time.time()
+    self.lastreport = time.time()
     print (f"Placed x {self.x} y {self.y}")
     reply = "0;place;%d;%d;%d;%d" % (self.index,self.x,self.y,self.dir)
     #print(reply)
-    self.sendMessage(reply)
+    self.send_message(reply)
     return self.index
 
   # set direction and speed
@@ -276,27 +279,34 @@ class serverRobot():
     self.dirdelta = delta
     #print (f"Speed goal = {self.speedGoalMPS}, dirgoal = {self.dirgoal}")
 
+  def clear_scans(self):
+    if self.scanLine1 != 0:
+        self.arena.delete(self.scanLine1)
+        self.arena.delete(self.scanLine2)
+        self.scanLine1 = 0
+
+  def clear_bomb(self):
+    if self.bombIcon != 0:
+      self.arena.delete(self.bombIcon)
+
   def update(self):
     #print("bot update")
-    self.shellUpdate()
+    self.shell_update()
     if self.used == 0 or self.status == "D" or self.arena.status != "R":
       return
     
     if self.autopilot == True:
-      self.doAutopilot()
+      self.do_autopilot()
 
     if self.autoscan == True:
-      self.doAutoscan()
+      self.do_autoscan()
 
-    if ((self.scantime + 0.1) < time.time()) and (self.scanLine1 != 0):
-    #if self.scanLine1 != 0:
-      self.arena.delete(self.scanLine1)
-      self.arena.delete(self.scanLine2)
-      self.scanLine1 = 0
-    if time.time() > self.bombTime and self.bombIcon != 0:
-      self.arena.delete(self.bombIcon)
-      #print("erase")
-    # adjust heading if we're turning
+    if ((self.scantime + 0.1) < time.time()):
+      self.clear_scans()
+
+    if time.time() > self.bombTime:
+      self.clear_bomb()
+
     if self.dirdelta != 0:
       # calculate turning rate
       newrate = int(self.currentSpeedMPS / 25)
@@ -397,19 +407,19 @@ class serverRobot():
     if self.reload > 0:
       self.reload = self.reload - 1 / QUANTA
 
-    if((time.time() - self.lastReport) > .5):
+    if((time.time() - self.lastreport) > .5):
       #print ("Setting...")
-      self.lastReport = time.time()
+      self.lastreport = time.time()
       #print("Reporting...")
-      self.panel.setSpeed(self.currentSpeedMPS)
-      self.panel.setMheat(self.mHeat)
-      self.panel.setDir(self.dir)
-      self.panel.setBheat(self.bHeat)
+      self.panel.set_speed(self.currentSpeedMPS)
+      self.panel.set_mheat(self.mHeat)
+      self.panel.set_dir(self.dir)
+      self.panel.set_bheat(self.bHeat)
       self.report()
       #print("scanning")
       #self.myScan()
 
-  def shellUpdate(self):
+  def shell_update(self):
     if self.ticks == 0:
       return
     self.ticks += -1
@@ -433,28 +443,24 @@ class serverRobot():
     self.bombTime = time.time() + .1
 
     for r in self.robots:
-      #print("Checking", r.index)
+      print(self.index, self.name, "checking", r.index, r.armor)
       dist = math.sqrt((self.xt - r.x)**2 + (self.yt - r.y)**2)
-      #print (dist)
-      damage = 0
       if dist < 40:
-        damage = 3
-      if dist < 20:
-        damage = 7
-      if dist < 10:
-        damage = 12
-      if dist < 6:
-        damage = 25
-      if damage > 0:
-        print("wounding")
-        r.wound(damage)
-    #print ("done exploding")
+        max_damage = 10.5 - (200-(50+r.armor))**3 * -0.0000117
+        if dist < 5:
+          damage = max_damage
+        else:
+          damage = max_damage / dist * 5
+        if damage > 0:
+          print("wounding", r.index, r.armor, dist, damage)
+          r.wound(damage)
 
   def scan(self, dir, res):
+    self.clear_scans()
     # Return with no action if robot is dead or game is paused
     if (self.status != "A" or self.arena.status != "R") and self.autoscan == False:
       reply = "%d;scan;0;0" % (self.index)
-      self.sendMessage(reply)
+      self.send_message(reply)
       return
 
     self.sdir = dir
@@ -517,16 +523,22 @@ class serverRobot():
     #print("Dist, bheat", dist, self.bHeat)
     if self.autoscan == False:
       reply = "%d;scan;%d;%d" % (self.index, dist, closest)
-      self.sendMessage(reply)
+      self.send_message(reply)
     return dist
+
+  def cross_out(self):
+    self.arena.line(self.x-6, self.y-6, self.x+7, self.y+7, fill="black", width=2)
+    self.arena.line(self.x-6, self.y+7, self.x+7, self.y-6, fill="black", width=2)
 
   def wound(self, damage):
     self.health -= damage
     #print (f"Robot {self.index-1} health: {self.health}")
-    self.panel.setHealth(self.health)
+    self.panel.set_health(self.health)
     if self.health <= 0:
       print ("Robot dead: ", self.index-1)
+      self.clear_scans()
       self.speedGoalMPS = 0
       self.currentSpeedMPS = 0
       self.status = "D"
+      self.cross_out()
 

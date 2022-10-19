@@ -3,65 +3,65 @@ import random
 import time
 
 # Create my robot - don't change this line
-myBot = userbot.myBot
+mybot = userbot.mybot
 
 # Create variables - they should start with 'my'
 
-myHeading = 0         # myHeading is the direction I want to go
-mySpeed = 35          # mySpeed is the speed I want to go
+heading = 0         # heading is the direction I want to go
+myspeed = 35        # myspeed is the speed I want to go
 
-myBot.myScanDirection = 0
-myBot.myRunTimer = 0
+mybot.scan_direction = 0
+mybot.run_timer = 0
 
-def mySetup():
-  global myHeading, mySpeed
+def setup():
+  global heading, myspeed
 
-  myBot.setName("Sample")
-  myBot.drive(myHeading, 35)
+  mybot.set_name("Sample")
+  mybot.drive(heading, 35)
 
-def myPing(enemy):
-global myHeading, mySpeed
+def ping(enemy):
+global heading, myspeed
   print ("Ouch! pinged by", enemy)
-  mySpeed = 100
-  myBot.drive(myHeading, mySpeed)
-  myBot.myRunTimer = time.time() + 3
+  myspeed = 100
+  mybot.drive(heading, myspeed)
+  mybot.run_timer = time.time() + 3
 
-def myMove():
-  global myHeading, mySpeed
+def move():
+  global heading, myspeed
   
   # See if we need to turn
-  olddir = myHeading
-  if (myBot.x > 900 and (myHeading > 270 or myHeading < 90)):
-    myHeading = random.randint(90, 270)
+  olddir = heading
+  if (mybot.x() > 900 and (heading > 270 or heading < 90)):
+    heading = random.randint(90, 270)
 
-  if (myBot.x < 100 and (myHeading < 270 and myHeading > 90)):
-    myHeading = (myHeading + 180) % 360
+  if (mybot.x() < 100 and (heading < 270 and heading > 90)):
+    heading = (heading + 180) % 360
 
-  if (myBot.y > 900 and (myHeading > 0 and myHeading < 180)):
-    myHeading = random.randint(180, 360)
+  if (mybot.y() > 900 and (heading > 0 and heading < 180)):
+    heading = random.randint(180, 360)
 
-  if (myBot.y < 100 and (myHeading > 180 and myHeading < 360)):
-    myHeading = random.randint(0, 90)
+  if (mybot.y() < 100 and (heading > 180 and heading < 360)):
+    heading = random.randint(0, 90)
 
   # If we're turning, set new scandir and slow down
-  if myHeading != olddir:
-    mySpeed = 15
-    myBot.drive(myHeading, mySpeed)
+  if heading != olddir:
+    myspeed = 15
+    mybot.drive(heading, myspeed)
   # If we're not turning, go as fast as we can
   else:
-    if (time.time() > myBot.myRunTimer):
-      mySpeed = 35
-    myBot.drive(myHeading, mySpeed)
+    if (time.time() > mybot.run_timer):
+      myspeed = 35
+    mybot.drive(heading, myspeed)
 
   # Scan and increment scan direction
-  result = myBot.scan(myBot.myScanDirection, 10)
+  result = mybot.scan(mybot.scan_direction, 10)
   if (result > 0):
-    myBot.fire(myBot.myScanDirection, result)
-  myBot.myScanDirection = (myBot.myScanDirection + 10) % 360
+    mybot.fire(mybot.scan_direction, result)
+  mybot.scan_direction = (mybot.scan_direction + 10) % 360
 
-myBot.processMove = myMove
-myBot.ping = myPing
-myBot.setup = mySetup
+mybot.process_move = move
+mybot.ping = ping
+mybot.setup = setup
 
 userbot.main()
 

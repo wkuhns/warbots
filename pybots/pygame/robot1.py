@@ -41,14 +41,14 @@ class bot():
     self.scandir = 0
     self.speedgoal = 100
 
-  def checkSleep(self):
+  def check_sleep(self):
     while time.time() < self.sleepUntil:
       events = sel.select(timeout=-10)
       for key, mask in events:
         service_connection(key, mask)
       time.sleep(.01)
 
-  def sendMessage(self,reply):
+  def send_message(self,reply):
     #print("sending: ", reply)
     self.sock.send(reply.encode("utf-8"))
 
@@ -58,25 +58,25 @@ class bot():
     self.scanResponse = -1
     reply = "%d;scan;%d;%d" % (self.rindex, dir, res)
     #print("Scanning: ", reply)
-    self.sendMessage(reply)
+    self.send_message(reply)
     self.sleepUntil = time.time() + .2
-    self.checkSleep()
+    self.check_sleep()
     return self.scanResponse
 
   def register(self):
     print("Set place message")
 
   def drive(self, dir, speed):
-    self.checkSleep()
+    self.check_sleep()
     #print("Dir",dir, "speed",speed)
     if self.rindex != -1:
       reply = "%d;drive;%d;%d" % (self.rindex, dir, speed)
-      self.sendMessage(reply)
+      self.send_message(reply)
       self.dirgoal = dir
       self.sleepUntil = time.time() + .1
 
-  def processMove(self):
-    self.checkSleep()
+  def process_move(self):
+    self.check_sleep()
     # See if we need to turn
     print("1")
     print(int(self.x), int(self.y), int(self.dirgoal))
@@ -121,14 +121,14 @@ class bot():
     self.scandir = (self.scandir + 10) % 360
 
   def fire(self, dir, range):
-    self.checkSleep()
+    self.check_sleep()
     reply = "%d;fire;%d;%d" % (self.rindex, dir, range)
     print(reply)
-    self.sendMessage(reply)
+    self.send_message(reply)
     self.sleepUntil = time.time() + .1
-    self.checkSleep()
+    self.check_sleep()
     
-  def processResponse(self, response):
+  def process_response(self, response):
     r = response.decode("utf-8")
     #print("Messages: ", r)
     msgs = r.split(':')
@@ -174,7 +174,7 @@ class bot():
     print (f"Pinged by {enemy}")
 
 def start_connections(HOST, PORT, num_conns):
-  global myBot
+  global mybot
   server_addr = (HOST, PORT)
   #for i in range(0, num_conns):
   #connid = i + 1
@@ -192,13 +192,13 @@ def start_connections(HOST, PORT, num_conns):
     outb=b"",
   )
   sel.register(sock, events, data=data)
-  myBot.sock = sock
+  mybot.sock = sock
   reply = "0;place"
-  myBot.sendMessage(reply)
+  mybot.send_message(reply)
   print("Connected")
 
 def service_connection(key, mask):
-  global myBot
+  global mybot
   sock = key.fileobj
   data = key.data
   if mask & selectors.EVENT_READ:
@@ -206,14 +206,14 @@ def service_connection(key, mask):
     if recv_data:
       #print(f"Received {recv_data!r} from connection {data.connid}")
       data.recv_total += len(recv_data)
-      myBot.processResponse(recv_data)
+      mybot.process_response(recv_data)
     if not recv_data or data.recv_total == data.msg_total:
       print(f"Closing connection {data.connid}")
       sel.unregister(sock)
       sock.close()
     recv_data = ""
 
-myBot = bot()
+mybot = bot()
 
 def main():
   start_connections(HOST, int(PORT), 1)
@@ -224,8 +224,8 @@ def main():
     events = sel.select(timeout=-10)
     for key, mask in events:
       service_connection(key, mask)
-    if(myBot.rindex != -1):
-      myBot.processMove()
+    if(mybot.rindex != -1):
+      mybot.process_move()
   #except KeyboardInterrupt:
   #  print("Caught keyboard interrupt, exiting")
   #finally:

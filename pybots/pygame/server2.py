@@ -140,7 +140,7 @@ class bot(pygame.sprite.Sprite):
     self.health = 100
     self.maxSpeed = 20
 
-  def sendMessage(self,reply):
+  def send_message(self,reply):
     #print("sending: ", reply)
     reply = reply + ':'
     self.sock.send(reply.encode("utf-8"))
@@ -191,7 +191,7 @@ class bot(pygame.sprite.Sprite):
     #print("Dist, bheat", dist, self.bHeat)
 
     reply = "%d;scan;%d;%d" % (self.index, dist, dir)
-    self.sendMessage(reply)
+    self.send_message(reply)
   
   def myFire(self, dir, range):
     if range >= 40 and range <= 700 and dir >= 0 and dir <= 359: 
@@ -200,13 +200,13 @@ class bot(pygame.sprite.Sprite):
       reply = "%d;fire;0" % (self.index)
     else:
       reply = "%d;fire;-1" % (self.index)
-    self.sendMessage(reply)
+    self.send_message(reply)
 
   def report(self):
     speed = int(self.speed*100/self.maxSpeed)
     dir = (360 - self.dir) % 360
     reply = "%d;status;%d;%d;%d;%d;%d;%d;%d" % (self.index,self.x,self.y,self.health,self.mHeat,speed,dir,self.pingnotify)
-    self.sendMessage(reply)
+    self.send_message(reply)
 
   def ping(self, enemy):
     reply = "%d;ping;%d" % (enemy, self.index)
@@ -268,7 +268,7 @@ class bot(pygame.sprite.Sprite):
     print (f"Placed x {self.x} y {self.y}")
     reply = "0;place;%d;%d;%d;%d" % (self.index,self.x,self.y,self.dir)
     print(reply)
-    self.sendMessage(reply)
+    self.send_message(reply)
     return self.index
 
   # set direction and speed
