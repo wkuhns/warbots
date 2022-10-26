@@ -18,7 +18,7 @@ def setup():
     mybot.set_name("Simple")
     mybot.heading = 45
     mybot.drive(100, mybot.heading)
-
+    mybot.set_armor(100)
 
 # This gets run whenever your robot is scanned by an enemy.
 # You get the ID of the enemy.

@@ -20,7 +20,7 @@ mybot.run_timer = 0  # Timer for running fast after being scanned
 def setup():
     mybot.set_name("Sample")
     mybot.drive(35, mybot.heading)
-    mybot.set_armor(80)
+    mybot.set_armor(100)
 
 
 # This gets run whenever your robot is scanned by an enemy. You get the ID of the enemy.

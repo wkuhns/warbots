@@ -22,6 +22,7 @@ class Bot():
   __myspeed = -1
   __mydirection = -1
   __mydsp = -1
+  __mytime = 0.0
 
   __scanResponse = 0
   __sock = ""
@@ -62,6 +63,9 @@ class Bot():
   def dsp(self):
     return self.mydsp
 
+  def gametime(self):
+    return self.mytime
+
   def ping(self, enemy):
     print ("Empty ping function")
 
@@ -101,8 +105,12 @@ class Bot():
   def send_message(self,reply):
     #print("sending: ", reply)
     reply = reply + '|'
-    self.sock.send(reply.encode("utf-8"))
-
+    try:
+      self.sock.send(reply.encode("utf-8"))
+    except:
+      print ("Could not send message")
+      sys.exit()
+      
   def scan(self, direction, res):
 
     self.scanResponse = -1
@@ -165,7 +173,7 @@ class Bot():
         self.myheat = int(rs[5])
         self.myspeed = int(rs[6])
         self.mydirection = int(rs[7])
-        self.mydsp = int(rs[8])
+        self.mytime = float(rs[8])
         #print(f"xcoordinate={self.x} y={self.y} dir={self.dir} speed={self.speed}")
         #break
       #error if not ours
@@ -181,21 +189,25 @@ class Bot():
     #global mybot
     server_addr = (HOST, PORT)
     connid=0
-    print(f"Starting connection to {server_addr}... ", end = '')
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setblocking(False)
-    sock.connect_ex(server_addr)
-    events = selectors.EVENT_READ | selectors.EVENT_WRITE
-    data = types.SimpleNamespace(
-      connid=connid,
-      msg_total=sum(len(m) for m in messages),
-      recv_total=0,
-      messages=messages.copy(),
-      outb=b""
-    )
-    sel.register(sock, events, data=data)
-    print("Connected")
-    return sock
+    try:
+      print(f"Starting connection to {server_addr}... ", end = '')
+      sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+      sock.setblocking(False)
+      sock.connect_ex(server_addr)
+      events = selectors.EVENT_READ | selectors.EVENT_WRITE
+      data = types.SimpleNamespace(
+        connid=connid,
+        msg_total=sum(len(m) for m in messages),
+        recv_total=0,
+        messages=messages.copy(),
+        outb=b""
+      )
+      sel.register(sock, events, data=data)
+      print("Connected")
+      return sock
+    except:
+      print("Could not connect")
+      sys.exit()
 
   def service_connection(self, key, mask):
 
@@ -211,6 +223,8 @@ class Bot():
         print(f"Closing connection {data.connid}")
         sel.unregister(sock)
         sock.close()
+        sys.exit()
+
       recv_data = ""
 
   def set_autopilot(self):
@@ -224,23 +238,23 @@ class Bot():
     
   def main(self):
     
-    #try:
-    while True:
-      while time.time() < self.sleepUntil:
-        events = sel.select(timeout=-10)
-        for key, mask in events:
-          self.service_connection(key, mask)
-        time.sleep(.01)
-      if(self.myhealth > 0):
-        self.move()
+    try:
+      while True:
+        while time.time() < self.sleepUntil:
+          events = sel.select(timeout=-10)
+          for key, mask in events:
+            self.service_connection(key, mask)
+          time.sleep(.01)
+        if(self.myhealth > 0):
+          self.move()
 
-      # If user didn't do something that takes time, wait 50 msec
-      if time.time() >= self.sleepUntil:
-        self.sleepUntil = time.time() + .05
-    #except KeyboardInterrupt:
-    #  print("Caught keyboard interrupt, exiting")
-    #finally:
-    #  sel.close()
-    #  sys.exit()
+        # If user didn't do something that takes time, wait 50 msec
+        if time.time() >= self.sleepUntil:
+          self.sleepUntil = time.time() + .05
+    except KeyboardInterrupt:
+      print("Caught keyboard interrupt, exiting")
+    finally:
+      sel.close()
+      sys.exit()
 
 mybot = Bot()

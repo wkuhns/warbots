@@ -3,7 +3,13 @@ import socket
 import selectors
 import types
 import random
+import sys
+import os
+import subprocess
+
+sys.path.append('libraries')
 import serverRobot
+
 import tkinter as tk
 from tkinter import ttk
 from tkinter import *
@@ -81,6 +87,10 @@ def service_connection(key, mask):
         else:
             # Client has closed socket, close our end too
             print(f"Closing connection to {data.addr}")
+            for r in robots:
+                if sock == r.sock:
+                    print(r.name, r.index, "Has left")
+                    remove_bot(r)
             sel.unregister(sock)
             sock.close()
         data.outb = ""
@@ -160,11 +170,32 @@ def create_arena(window, height, width):
     canvas.pack(expand=False)
     return canvas
 
+def remove_bot(r):
+    print("-a")
+    del panels[r.index]
+    quads[r.q].used = False
+    print("a")
+    panels[r.index] = RobotPanel(frame, r.index)
+    print("a2")
+    r.panel = panels[r.index]
+    print("b")
+    r.clear_bomb()
+    r.clear_scans()
+    print("c")
+    arena.delete(r.botIcon)
+    if r.shellIcon != 0:
+        arena.delete(r.shellIcon)    
+        arena.delete(r.tick1)
+        arena.delete(r.tick2)
+    print("d")
+    r.my_init(r.index, arena, robots, r.index-1)
+    print("e")
 
 def place_bot(sock):
     x = 0
-    for q in range(0, 3):
-        if quads[q].used == 0:
+    for q in range(0, 4):
+        print("Quad", q, quads[q].used)
+        if quads[q].used == False:
             x = 1
 
     if x == 0:
@@ -173,28 +204,29 @@ def place_bot(sock):
 
     # Pick a random quadrant
     q = random.randint(0, 3)
-    while quads[q].used == 1:
+    while quads[q].used == True:
         q = random.randint(0, 3)
     print(f"picked {q}")
-    quads[q].used = 1
-    r = len(robots)
-    print(f"placing {r + 1}")
+    quads[q].used = True
+    robots[q].used = True
+
+    print(f"placing {q + 1}")
     x = random.randint(0, 300) + quads[q].x
     y = random.randint(0, 300) + quads[q].y
 
-    robots.append(serverRobot.ServerRobot(r + 1, arena, robots))
-    robots[r].place(sock, x, y)
-    robots[r].panel = panels[r]
-    robots[r].panel.populate(robots[r].name)
-    # print(f"Bots: {robots[r].index}")
+    #robots.append(serverRobot.ServerRobot(r + 1, arena, robots, q))
+    robots[q].place(sock, x, y)
+    #robots[r].panel = panels[r]
+    robots[q].panel.populate(robots[q].name)
+    #print(f"Bots: {r} {robots[r].index}")
 
-    print(f"placed {r}")
-    return robots[r].index
+    #print(f"placed {r}")
+    return robots[q].index
 
 
 class quad:
     def __init__(self):
-        self.used = 0
+        self.used = False
         self.x = 0
         self.y = 0
 
@@ -223,7 +255,6 @@ class RobotPanel:
     def __init__(self, frame, index):
         self.botpanel = make_panel(frame, index)
         self.index = index
-        print("Panel index", index)
 
     def populate(self, name):
         # Label at top
@@ -316,7 +347,20 @@ def post_message(msg):
     arena.msgBox.insert(END, '\n' + msg)
     arena.msgBox.see(END)
 
+def launchbot(p):
+    DETACHED_PROCESS = 0x00000008
+    fname = f"{clicked.get()}Bot.py"
+    print (fname)
+    subprocess.Popen(["python3", fname])
+    
 
+botlist = os.listdir()
+diskbots = []
+for fname in botlist:
+    if fname[-6:] == "Bot.py":
+        diskbots.append(fname[:len(fname)-6])
+
+print(diskbots)
 # Create frame and arena - same size
 frame = create_frame(ARENA_SIZE + STATUS_WIDTH + 2, ARENA_SIZE + 2)
 arena = create_arena(frame, ARENA_SIZE, ARENA_SIZE)
@@ -329,17 +373,31 @@ panel_status = make_panel(frame, 0)
 Button(panel_status, text='Start', bg='white', font=('arial', 12, 'normal'), command=start_btn_click).place(x=10, y=10)
 
 # Status panel pause button
-Button(panel_status, text='Pause', bg='white', font=('arial', 12, 'normal'), command=pause_btn_click).place(x=90, y=10)
+Button(panel_status, text='Pause', bg='white', font=('arial', 12, 'normal'), command=pause_btn_click).place(x=80, y=10)
+
+# Status panel robot select
+#diskbots = ('charger.py',  'sampleBot.py',  'simpleBot.py',  'simplestBot.py')
+listvar = tk.Variable(value=diskbots)
+clicked = StringVar()
+clicked.set(diskbots[0])
+listbox = tk.OptionMenu(
+    panel_status,
+    clicked,
+    *diskbots,
+    command=launchbot
+)
+listbox.place(x=180, y=10)
+
 
 # Status panel game time display
-Label(panel_status, text='Game Time', bg='white', font=('arial', 10, 'normal')).place(x=250, y=15)
+Label(panel_status, text='Game Time', bg='white', font=('arial', 8, 'normal')).place(x=325, y=3)
 gTime = Entry(panel_status)
-gTime.config(width=4, justify=RIGHT, font='arial 10')
+gTime.config(width=4, justify=RIGHT, font='arial 8')
 gTime.place(x=350, y=20)
 
 # Message box
-arena.msgBox = Text(panel_status, height=6, width=52, font=('Arial', '10'))
-arena.msgBox.place(x=10, y=50)
+arena.msgBox = Text(panel_status, height=6, width=53, font=('Arial', '10'))
+arena.msgBox.place(x=12, y=50)
 
 panels = []
 for i in range(0, 4):
@@ -348,6 +406,9 @@ for i in range(0, 4):
 sel = selectors.DefaultSelector()
 robots = []
 
+for r in range(0,4):
+    robots.append(serverRobot.ServerRobot(r + 1, arena, robots, r))
+    robots[r].panel = panels[r]
 
 def main():
     # bot = arena.makebot(750, 250, "lightgreen")
@@ -364,52 +425,52 @@ def main():
     lsock.setblocking(False)
     sel.register(lsock, selectors.EVENT_READ, data=None)
 
-    # try:
-    while True:
-        # don't block
-        events = sel.select(timeout=-10)
-        for key, mask in events:
-            # listening socket
-            if key.data is None:
-                accept_wrapper(key.fileobj)
+    try:
+        while True:
+            # don't block
+            events = sel.select(timeout=-10)
+            for key, mask in events:
+                # listening socket
+                if key.data is None:
+                    accept_wrapper(key.fileobj)
+                else:
+                    service_connection(key, mask)
+
+            # Check if tournament is over
+            players = 0
+            winner = "none"
+            for r in robots:
+                if r.status == "A":
+                    players += 1
+                    winner = r.name
+
+            # If game is running and 1 or fewer live robots, we're finished.
+            if players <= 1 and arena.status == "R":
+                arena.status = "F"
+                post_message(f"Finished! The winner is {winner}.")
+                for r in robots:
+                    r.clear_bomb()
             else:
-                service_connection(key, mask)
+                for r in robots:
+                    r.update()
 
-        # Check if tournament is over
-        players = 0
-        winner = "none"
-        for r in robots:
-            if r.status == "A":
-                players += 1
-                winner = r.name
+            if arena.status == "R":
+                arena.gametime = time.time() - arena.starttime
+            # If we're paused increment start time
+            if arena.status == "P":
+                arena.starttime = time.time() - arena.gametime
 
-        # If game is running and 1 or fewer live robots, we're finished.
-        if players <= 1 and arena.status == "R":
-            arena.status = "F"
-            post_message(f"Finished! The winner is {winner}.")
-            for r in robots:
-                r.clear_bomb()
-        else:
-            for r in robots:
-                r.update()
+            gTime.delete(0, END)
+            sval = "%.0f" % arena.gametime
+            gTime.insert(0, sval)
+            frame.update()
+            time.sleep(.033)
 
-        if arena.status == "R":
-            arena.gametime = time.time() - arena.starttime
-        # If we're paused increment start time
-        if arena.status == "P":
-            arena.starttime = time.time() - arena.gametime
-
-        gTime.delete(0, END)
-        sval = "%.0f" % arena.gametime
-        gTime.insert(0, sval)
-        frame.update()
-        time.sleep(.033)
-
-    # except KeyboardInterrupt:
-    #  print("Caught keyboard interrupt, exiting")
-    # finally:
-    #  sel.close()
-    #  sys.exit()
+    except KeyboardInterrupt:
+      print("Caught keyboard interrupt, exiting")
+    finally:
+      sel.close()
+      sys.exit()
 
 
 main()
